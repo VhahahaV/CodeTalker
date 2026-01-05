@@ -1,0 +1,87 @@
+DATA:
+  dataset: multidataset
+  data_root: /home/caizhuoqiang/Data
+  # JSON定义音频与51维FLAME系数路径，数据加载器会转换为顶点
+  data_jsons:
+    - dataset_jsons/splits/MEAD_VHAP_train.json
+    - dataset_jsons/splits/MultiModal200_train.json
+    - dataset_jsons/splits/digital_human.json
+  val_data_jsons:
+    - dataset_jsons/splits/MEAD_VHAP_val.json
+    - dataset_jsons/splits/MultiModal200_val.json
+  test_data_jsons:
+    - dataset_jsons/splits/MEAD_VHAP_test.json
+    - dataset_jsons/splits/MultiModal200_test.json
+  read_audio: False  # Stage1只训练顶点VQ-VAE，不需要音频
+  flame_model_path: utils/FLAME2020/generic_model.pkl  # 用于将51维系数转换为顶点
+
+LOSS:
+  loss: MSE
+  motion_weight: 1.0
+  reg_weight: 1.0
+  quant_loss_weight: 1.0
+
+NETWORK:
+  arch: stage1_vocaset          # 使用顶点版stage1
+  in_dim: 15069                 # 5023*3 顶点维度
+  hidden_size: 1024
+  num_hidden_layers: 6
+  num_attention_heads: 8
+  intermediate_size: 1536
+  window_size: 1
+  quant_factor: 0
+  face_quan_num: 16
+  neg: 0.2
+  autoencoder: stage1_vocaset
+  INaffine: False
+  style_emb_method: nnemb
+
+VQuantizer:
+  n_embed: 256
+  zquant_dim: 64
+
+TRAIN:
+  use_sgd: False
+  sync_bn: False
+  train_gpu: [0]
+  workers: 10
+  batch_size: 1
+  batch_size_val: 1
+  base_lr: 0.0001
+  StepLR: False
+  warmup_steps: 1
+  adaptive_lr: False
+  factor: 0.3
+  patience: 3
+  threshold: 0.0001
+  poly_lr: False
+  epochs: 100
+  step_size: 100
+  gamma: 0.5
+  start_epoch: 0
+  power: 0.9
+  momentum: 0.9
+  weight_decay: 0.002
+  manual_seed: 131
+  print_freq: 10
+  save_freq: 1
+  save_path: RUN/multidataset/CodeTalker_s1/model
+  weight:
+  resume:
+  evaluate: True
+  eval_freq: 10
+
+Distributed:
+  dist_url: tcp://127.0.0.1:6701
+  dist_backend: 'nccl'
+  multiprocessing_distributed: True
+  world_size: 1
+  rank: 0
+
+TEST:
+  test_workers: 0
+  test_gpu: [0]
+  test_batch_size: 1
+  save: True
+  model_path:
+  save_folder:

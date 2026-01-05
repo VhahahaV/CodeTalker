@@ -101,6 +101,12 @@ def read_data(args):
     return train_data, valid_data, test_data, subjects_dict
 
 def get_dataloaders(args):
+    # 检查是否是multidataset
+    if hasattr(args, 'dataset') and args.dataset == 'multidataset':
+        from .data_loader_multidataset import get_multidataset_dataloaders
+        return get_multidataset_dataloaders(args)
+
+    # 原有的vocaset和BIWI数据加载逻辑
     dataset = {}
     train_data, valid_data, test_data, subjects_dict = read_data(args)
     train_data = Dataset(train_data,subjects_dict,"train",args.read_audio)

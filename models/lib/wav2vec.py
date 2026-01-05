@@ -97,6 +97,9 @@ class Wav2Vec2Model(Wav2Vec2Model):
                 hidden_states = hidden_states[:, :frame_num*2]
         elif dataset == "vocaset":
             hidden_states = linear_interpolation(hidden_states, 50, 30,output_len=frame_num)
+        elif dataset == "multidataset":
+            # 多数据集使用25fps对齐
+            hidden_states = linear_interpolation(hidden_states, 50, 25,output_len=frame_num)
      
         if attention_mask is not None:
             output_lengths = self._get_feat_extract_output_lengths(attention_mask.sum(-1))
