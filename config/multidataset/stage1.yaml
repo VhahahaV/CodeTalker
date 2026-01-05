@@ -45,9 +45,9 @@ TRAIN:
   sync_bn: False
   train_gpu: [0]
   workers: 10
-  batch_size: 1
-  batch_size_val: 1
-  base_lr: 0.0001
+  batch_size: 8  # 进一步增加batch_size
+  batch_size_val: 8
+  base_lr: 0.0002  # 随着batch_size增加，适当调大学习率
   StepLR: False
   warmup_steps: 1
   adaptive_lr: False

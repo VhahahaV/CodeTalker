@@ -23,7 +23,7 @@ cv2.setNumThreads(0)
 
 def main():
     args = get_parser()
-    os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.train_gpu)
+    # os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.train_gpu)
     cudnn.benchmark = True
 
     if args.dist_url == "env://" and args.world_size == -1:

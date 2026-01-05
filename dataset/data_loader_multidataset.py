@@ -69,7 +69,7 @@ def load_json_data(json_path, data_root):
             'name': key,
             'speaker_id': item['speaker_id'],
             'audio_path': os.path.join(data_root, item['audio_path']),
-            'motion_path': os.path.join(data_root, item.get('motion_feature_path', item.get('flame_coeff_save_path', ''))),
+            'motion_path': os.path.join(data_root, item.get('flame_coeff_save_path', item.get('motion_feature_path', ''))),
             'split': item.get('split', 'train')
         }
         data_list.append(data_item)
@@ -199,22 +199,38 @@ def process_multidataset_item(item, processor, templates, args, flame_model):
                 print(f"Warning: Could not load audio {item['audio_path']}: {e}")
                 return None
 
-        # 加载motion数据
+        # 加载motion数据 - 只加载FLAME 51维参数
         motion_data = None
         if os.path.exists(item['motion_path']):
             try:
                 if item['motion_path'].endswith('.npz'):
                     motion_npz = np.load(item['motion_path'], allow_pickle=True)
-                    # 尝试不同的键名
-                    for key in ['images', 'data', 'motion', 'features']:
-                        if key in motion_npz:
-                            motion_data = motion_npz[key]
-                            break
-                    if motion_data is None:
-                        # 如果没有找到标准键，尝试第一个数组
-                        arrays = [motion_npz[f] for f in motion_npz.files]
-                        if arrays:
-                            motion_data = arrays[0]
+                    # 优先尝试FLAME参数键
+                    flame_keys = ['expr', 'pose', 'shape']  # FLAME参数文件包含这些键
+                    has_flame_keys = any(key in motion_npz for key in flame_keys)
+
+                    if has_flame_keys:
+                        # 这是FLAME参数文件，构造51维motion (50 expr + 1 jaw)
+                        if 'expr' in motion_npz and 'jaw_pose' in motion_npz:
+                            expr_data = motion_npz['expr']  # (T, 50)
+                            jaw_data = motion_npz['jaw_pose']  # (T, 3)
+                            # 只使用jaw的第一个维度
+                            motion_data = np.concatenate([expr_data, jaw_data[:, :1]], axis=1)  # (T, 51)
+                        else:
+                            print(f"Warning: FLAME参数文件缺少必要键: {item['motion_path']}")
+                            return None
+                    else:
+                        # 可能是其他格式的motion文件
+                        for key in ['motion', 'data', 'features']:
+                            if key in motion_npz:
+                                motion_data = motion_npz[key]
+                                break
+                        if motion_data is None:
+                            # 尝试第一个数组
+                            arrays = [motion_npz[f] for f in motion_npz.files]
+                            if arrays:
+                                motion_data = arrays[0]
+
                 elif item['motion_path'].endswith('.npy'):
                     motion_data = np.load(item['motion_path'], allow_pickle=True)
                 else:
@@ -228,12 +244,17 @@ def process_multidataset_item(item, processor, templates, args, flame_model):
             print(f"Warning: No motion data found for {item['name']}")
             return None
 
-        # 确保motion数据是正确的形状 (T, 51)
-        motion_data = np.array(motion_data)
+        # 验证motion数据是正确的形状 (T, 51)
+        motion_data = np.array(motion_data, dtype=np.float32)
+        if motion_data.shape[-1] != 51:
+            print(f"Error: Motion data has wrong dimension {motion_data.shape}, expected (*, 51) for {item['name']}")
+            return None
+
         if motion_data.ndim == 1:
             motion_data = motion_data.reshape(1, -1)
         elif motion_data.ndim > 2:
-            motion_data = motion_data.reshape(motion_data.shape[0], -1)
+            print(f"Error: Motion data has too many dimensions {motion_data.shape} for {item['name']}")
+            return None
 
         # 使用FLAME将motion转换为顶点
         vertices_flat = None
